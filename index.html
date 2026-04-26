@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TKD REMOTE - PRO SECURITY</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { margin: 0; font-family: sans-serif; background: #121212; color: #fff; text-align: center; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; display: none; }
+        button { border: none; border-radius: 12px; color: white; font-weight: bold; transition: 0.1s; outline: none; }
+        button:active { transform: scale(0.92); opacity: 0.5; }
+        .red-btn { background: #d9534f; }
+        .blue-btn { background: #0056b3; }
+        .btn-small { height: 70px; font-size: 1.8rem; opacity: 0.7; }
+        .btn-large { height: 135px; font-size: 2.8rem; }
+        .locked { opacity: 0.1 !important; pointer-events: none; }
+        #status-bar { background: #000; padding: 10px; font-size: 1.2rem; display: flex; justify-content: space-around; border-bottom: 2px solid #333; }
+        
+        .ref-taken { 
+            background: #d9534f !important; 
+            opacity: 0.5;
+            pointer-events: none; 
+            position: relative;
+        }
+        .ref-taken::after {
+            content: " (ĐÃ CHỌN)";
+            font-size: 0.7rem;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="setup" style="padding: 50px 20px;">
+        <h2>CHỌN TRỌNG TÀI</h2>
+        <button id="btn-R1" style="background:#444; padding:30px; width:80%; margin:10px;" onclick="startRef('R1')">TRỌNG TÀI 1</button>
+        <button id="btn-R2" style="background:#444; padding:30px; width:80%; margin:10px;" onclick="startRef('R2')">TRỌNG TÀI 2</button>
+        <button id="btn-R3" style="background:#444; padding:30px; width:80%; margin:10px;" onclick="startRef('R3')">TRỌNG TÀI 3</button>
+    </div>
+
+    <div id="status-bar" style="display:none">
+        <span id="rid-display"></span> | <span id="timer-state">DỪNG GIỜ</span>
+    </div>
+
+    <div id="main-ui" class="grid">
+        <button class="red-btn btn-small score-btn" onclick="sendHit('r1')">R +1</button>
+        <button class="blue-btn btn-small score-btn" onclick="sendHit('b1')">B +1</button>
+
+        <button class="red-btn btn-large score-btn" onclick="sendHit('r2')">R +2</button>
+        <button class="blue-btn btn-large score-btn" onclick="sendHit('b2')">B +2</button>
+
+        <button class="red-btn btn-large score-btn" onclick="sendHit('r3')">R +3</button>
+        <button class="blue-btn btn-large score-btn" onclick="sendHit('b3')">B +3</button>
+
+        <button class="red-btn btn-large score-btn" onclick="sendHit('r4')">R +4</button>
+        <button class="blue-btn btn-large score-btn" onclick="sendHit('b4')">B +4</button>
+
+        <button class="red-btn btn-large score-btn" onclick="sendHit('r6')">R +6</button>
+        <button class="blue-btn btn-large score-btn" onclick="sendHit('b6')">B +6</button>
+        
+        <button style="grid-column: span 2; background:#333; height: 50px;" onclick="location.reload()">ĐỔI VAI TRÒ</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNt_hUr6yFJepLhl_7T72UA4x1XRr6siQ",
+            authDomain: "bangdiem2-36e35.firebaseapp.com",
+            databaseURL: "https://bangdiem2-36e35-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "bangdiem2-36e35",
+            storageBucket: "bangdiem2-36e35.firebasestorage.app",
+            messagingSenderId: "353096502641",
+            appId: "1:353096502641:web:bfe5608452627b12307ad0",
+            measurementId: "G-FVDT7J72SF"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        let myRefId = "", isRunning = false, sessionPassword = "";
+
+        // Theo dõi trạng thái trận đấu
+        db.ref('match/run').on('value', (snap) => {
+            isRunning = snap.val();
+            const btns = document.querySelectorAll('.score-btn');
+            const state = document.getElementById('timer-state');
+            btns.forEach(b => isRunning ? b.classList.remove('locked') : b.classList.add('locked'));
+            state.innerText = isRunning ? "ĐANG ĐẤU" : "DỪNG GIỜ";
+            state.style.color = isRunning ? "#28a745" : "#ff4444";
+        });
+
+        // Theo dõi xem những trọng tài nào đã được chọn
+        db.ref('referee_status').on('value', (snap) => {
+            const status = snap.val() || {};
+            const refIds = ['R1', 'R2', 'R3'];
+            refIds.forEach(id => {
+                const btn = document.getElementById('btn-' + id);
+                if (btn && id !== myRefId) { // Không làm mờ nút của chính mình
+                    if (status[id]) btn.classList.add('ref-taken');
+                    else btn.classList.remove('ref-taken');
+                }
+            });
+        });
+
+        function startRef(id) {
+            db.ref('referee_passwords/' + id).once('value').then((snap) => {
+                const correctPw = snap.val() || ""; 
+                const userPw = prompt("NHẬP MẬT KHẨU CHO " + id + ":");
+                
+                if (userPw !== correctPw) {
+                    alert("SAI MẬT KHẨU! Vui lòng liên hệ thư ký.");
+                    return;
+                }
+
+                db.ref('referee_status/' + id).transaction((currentData) => {
+                    if (currentData === null) return true;
+                    else return;
+                }, (error, committed, snapshot) => {
+                    if (committed) {
+                        myRefId = id;
+                        sessionPassword = userPw; // Lưu mật khẩu đã nhập vào phiên làm việc
+                        
+                        db.ref('referee_status/' + id).onDisconnect().remove();
+                        document.getElementById('setup').style.display = 'none';
+                        document.getElementById('main-ui').style.display = 'grid';
+                        document.getElementById('status-bar').style.display = 'flex';
+                        document.getElementById('rid-display').innerText = id;
+
+                        // TÍNH NĂNG MỚI: Theo dõi mật khẩu thời gian thực
+                        // Nếu mật khẩu trên bảng điều khiển thay đổi khác với sessionPassword -> Văng ra ngoài
+                        db.ref('referee_passwords/' + id).on('value', (pwSnap) => {
+                            const latestPw = pwSnap.val();
+                            if (myRefId === id && latestPw !== sessionPassword) {
+                                alert("MẬT KHẨU ĐÃ THAY ĐỔI HOẶC BỊ HUỶ! Bạn sẽ bị đăng xuất.");
+                                location.reload(); // Tự động load lại trang để quay về màn hình setup
+                            }
+                        });
+
+                    } else {
+                        alert("Trọng tài này đã có người chọn trước bạn!");
+                    }
+                });
+            });
+        }
+
+        function sendHit(type) {
+            if (!isRunning) return;
+            db.ref('hits').push({ 
+                refId: myRefId, 
+                type: type, 
+                time: firebase.database.ServerValue.TIMESTAMP 
+            });
+            if(navigator.vibrate) navigator.vibrate(50);
+        }
+    </script>
+</body>
+</html>
