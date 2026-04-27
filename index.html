@@ -76,7 +76,6 @@
         const db = firebase.database();
         let myRefId = "", isRunning = false, sessionPassword = "";
 
-        // Theo dõi trạng thái trận đấu
         db.ref('match/run').on('value', (snap) => {
             isRunning = snap.val();
             const btns = document.querySelectorAll('.score-btn');
@@ -86,13 +85,12 @@
             state.style.color = isRunning ? "#28a745" : "#ff4444";
         });
 
-        // Theo dõi xem những trọng tài nào đã được chọn
         db.ref('referee_status').on('value', (snap) => {
             const status = snap.val() || {};
             const refIds = ['R1', 'R2', 'R3'];
             refIds.forEach(id => {
                 const btn = document.getElementById('btn-' + id);
-                if (btn && id !== myRefId) { // Không làm mờ nút của chính mình
+                if (btn && id !== myRefId) {
                     if (status[id]) btn.classList.add('ref-taken');
                     else btn.classList.remove('ref-taken');
                 }
@@ -115,21 +113,23 @@
                 }, (error, committed, snapshot) => {
                     if (committed) {
                         myRefId = id;
-                        sessionPassword = userPw; // Lưu mật khẩu đã nhập vào phiên làm việc
+                        sessionPassword = userPw;
                         
+                        // KHI MẤT KẾT NỐI: Tự động giải phóng vị trí
                         db.ref('referee_status/' + id).onDisconnect().remove();
+                        
                         document.getElementById('setup').style.display = 'none';
                         document.getElementById('main-ui').style.display = 'grid';
                         document.getElementById('status-bar').style.display = 'flex';
                         document.getElementById('rid-display').innerText = id;
 
-                        // TÍNH NĂNG MỚI: Theo dõi mật khẩu thời gian thực
-                        // Nếu mật khẩu trên bảng điều khiển thay đổi khác với sessionPassword -> Văng ra ngoài
+                        // THEO DÕI MẬT KHẨU THỜI GIAN THỰC
                         db.ref('referee_passwords/' + id).on('value', (pwSnap) => {
                             const latestPw = pwSnap.val();
+                            // Nếu mật khẩu trên bảng điểm bị xóa hoặc thay đổi
                             if (myRefId === id && latestPw !== sessionPassword) {
-                                alert("MẬT KHẨU ĐÃ THAY ĐỔI HOẶC BỊ HUỶ! Bạn sẽ bị đăng xuất.");
-                                location.reload(); // Tự động load lại trang để quay về màn hình setup
+                                alert("BẢNG ĐIỂM ĐÃ TẮT HOẶC MẬT KHẨU THAY ĐỔI!");
+                                location.reload(); 
                             }
                         });
 
