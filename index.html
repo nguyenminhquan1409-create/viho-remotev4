@@ -76,13 +76,28 @@
         const db = firebase.database();
         let myRefId = "", isRunning = false, sessionPassword = "";
 
-        db.ref('match/run').on('value', (snap) => {
-            isRunning = snap.val();
+        // LẮNG NGHE TOÀN BỘ TRẠNG THÁI TRẬN ĐẤU (RUN & REST)
+        db.ref('match').on('value', (snap) => {
+            const data = snap.val();
+            if (!data) return;
+            
+            isRunning = data.run;
+            const isRest = data.isRest; // Lấy trạng thái nghỉ
             const btns = document.querySelectorAll('.score-btn');
-            const state = document.getElementById('timer-state');
-            btns.forEach(b => isRunning ? b.classList.remove('locked') : b.classList.add('locked'));
-            state.innerText = isRunning ? "ĐANG ĐẤU" : "DỪNG GIỜ";
-            state.style.color = isRunning ? "#28a745" : "#ff4444";
+            const stateText = document.getElementById('timer-state');
+
+            // MÀN HÌNH TỐI KHI: (KHÔNG CHẠY) HOẶC (ĐANG NGHỈ)
+            const shouldLock = !isRunning || isRest;
+
+            btns.forEach(b => shouldLock ? b.classList.add('locked') : b.classList.remove('locked'));
+
+            if (isRest) {
+                stateText.innerText = "NGHỈ GIỮA HIỆP";
+                stateText.style.color = "#ffea00"; // Màu vàng
+            } else {
+                stateText.innerText = isRunning ? "ĐANG ĐẤU" : "DỪNG GIỜ";
+                stateText.style.color = isRunning ? "#28a745" : "#ff4444";
+            }
         });
 
         db.ref('referee_status').on('value', (snap) => {
@@ -114,25 +129,19 @@
                     if (committed) {
                         myRefId = id;
                         sessionPassword = userPw;
-                        
-                        // KHI MẤT KẾT NỐI: Tự động giải phóng vị trí
                         db.ref('referee_status/' + id).onDisconnect().remove();
-                        
                         document.getElementById('setup').style.display = 'none';
                         document.getElementById('main-ui').style.display = 'grid';
                         document.getElementById('status-bar').style.display = 'flex';
                         document.getElementById('rid-display').innerText = id;
 
-                        // THEO DÕI MẬT KHẨU THỜI GIAN THỰC
                         db.ref('referee_passwords/' + id).on('value', (pwSnap) => {
                             const latestPw = pwSnap.val();
-                            // Nếu mật khẩu trên bảng điểm bị xóa hoặc thay đổi
                             if (myRefId === id && latestPw !== sessionPassword) {
                                 alert("BẢNG ĐIỂM ĐÃ TẮT HOẶC MẬT KHẨU THAY ĐỔI!");
                                 location.reload(); 
                             }
                         });
-
                     } else {
                         alert("Trọng tài này đã có người chọn trước bạn!");
                     }
